@@ -1,0 +1,206 @@
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      global_frame: map
+      robot_base_frame: base_link
+      update_frequency: 1.0
+      publish_frequency: 1.0
+      width: 10
+      height: 10
+      resolution: 0.05
+      origin_x: -5.0
+      origin_y: -5.0
+      robot_radius: 0.15
+      track_unknown_space: true
+      plugins: ["obstacle_layer", "inflation_layer"]
+      
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: true
+          marking: true
+          data_type: "LaserScan"
+          raytrace_max_range: 3.0
+          raytrace_min_range: 0.15
+          obstacle_max_range: 2.5
+          obstacle_min_range: 0.15
+
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 3.0  
+        inflation_radius: 0.55     # Larger for better obstacle avoidance
+
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      global_frame: odom
+      robot_base_frame: base_link
+      update_frequency: 5.0
+      publish_frequency: 2.0
+      rolling_window: true
+      width: 3
+      height: 3
+      resolution: 0.05
+      robot_radius: 0.15
+      plugins: ["obstacle_layer", "inflation_layer"]
+      
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: true
+          marking: true
+          data_type: "LaserScan"
+          raytrace_max_range: 3.0
+          raytrace_min_range: 0.15
+          obstacle_max_range: 2.5
+          obstacle_min_range: 0.15
+          inf_is_valid: false
+
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 3.0
+        inflation_radius: 0.2
+
+controller_server:
+  ros__parameters:
+    controller_frequency: 5.0
+    min_x_velocity_threshold: 0.01
+    min_y_velocity_threshold: 0.0
+    min_theta_velocity_threshold: 0.05
+    failure_tolerance: 0.3
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.05
+      movement_time_allowance: 10.0
+    goal_checker:
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.25
+      yaw_goal_tolerance: 0.25
+      stateful: true
+    controller_plugins: ["FollowPath"]
+    
+    # DWB Local Planner with conservative settings
+    FollowPath:
+      plugin: "dwb_core::DWBLocalPlanner"
+      debug_trajectory_details: true
+      min_vel_x: 0.0
+      max_vel_x: 0.1
+      min_vel_y: 0.0
+      max_vel_y: 0.0
+      min_vel_theta: -0.3
+      max_vel_theta: 0.3
+      acc_lim_x: 0.2
+      acc_lim_y: 0.0
+      acc_lim_theta: 0.3
+      decel_lim_x: -0.2
+      decel_lim_y: 0.0
+      decel_lim_theta: -0.3
+      vx_samples: 10
+      vy_samples: 0
+      vtheta_samples: 10
+      sim_time: 2.0
+      linear_granularity: 0.05
+      angular_granularity: 0.025
+      transform_tolerance: 0.5
+      xy_goal_tolerance: 0.25
+      trans_stopped_velocity: 0.05
+      short_circuit_trajectory_evaluation: true
+      stateful: true
+      critics: ["ObstacleFootprint", "GoalAlign", "PathAlign", "GoalDist", "PathDist"]
+      ObstacleFootprint.scale: 0.01
+      ObstacleFootprint.inflation_radius: 0.15
+      PathAlign.scale: 8.0
+      GoalAlign.scale: 6.0
+      PathAlign.forward_point_distance: 0.3
+      GoalAlign.forward_point_distance: 0.3
+      PathDist.scale: 8.0
+      GoalDist.scale: 6.0
+
+planner_server:
+  ros__parameters:
+    planner_plugins: ["GridBased"]
+    
+    GridBased:
+      plugin: "nav2_navfn_planner/NavfnPlanner"
+      tolerance: 0.5
+      use_astar: true
+      allow_unknown: true
+
+recoveries_server:
+  ros__parameters:
+    costmap_topic: local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 10.0
+    recovery_plugins: ["spin", "backup", "wait"]
+    
+    spin:
+      plugin: "nav2_recoveries/Spin"
+      max_rotational_vel: 0.3
+      min_rotational_vel: 0.1
+      rotational_acc_lim: 0.3
+    
+    backup:
+      plugin: "nav2_recoveries/BackUp"
+      speed: 0.03
+      backup_dist: 0.15
+    
+    wait:
+      plugin: "nav2_recoveries/Wait"
+      wait_time: 5.0
+    
+    global_frame: odom
+    robot_base_frame: base_link
+    transform_timeout: 0.5
+    use_sim_time: false
+    simulate_ahead_time: 2.0
+
+bt_navigator:
+  ros__parameters:
+    use_sim_time: false
+    global_frame: map
+    robot_base_frame: base_link
+    odom_topic: /odom
+    transform_tolerance: 0.5
+    default_bt_xml_filename: "navigate_w_replanning_and_recovery.xml"
+    bt_loop_duration: 10
+    default_server_timeout: 20
+    plugin_lib_names:
+    - nav2_compute_path_to_pose_action_bt_node
+    - nav2_follow_path_action_bt_node
+    - nav2_back_up_action_bt_node
+    - nav2_spin_action_bt_node
+    - nav2_wait_action_bt_node
+    - nav2_clear_costmap_service_bt_node
+    - nav2_is_stuck_condition_bt_node
+    - nav2_goal_reached_condition_bt_node
+    - nav2_goal_updated_condition_bt_node
+    - nav2_initial_pose_received_condition_bt_node
+    - nav2_reinitialize_global_localization_service_bt_node
+    - nav2_rate_controller_bt_node
+    - nav2_distance_controller_bt_node
+    - nav2_speed_controller_bt_node
+    - nav2_truncate_path_action_bt_node
+    - nav2_goal_updater_node_bt_node
+    - nav2_recovery_node_bt_node
+    - nav2_pipeline_sequence_bt_node
+    - nav2_round_robin_node_bt_node
+    - nav2_transform_available_condition_bt_node
+    - nav2_time_expired_condition_bt_node
+    - nav2_distance_traveled_condition_bt_node
+
+lifecycle_manager:
+  ros__parameters:
+    use_sim_time: false
+    autostart: true
+    node_names: ['controller_server',
+                 'planner_server',
+                 'recoveries_server',
+                 'bt_navigator']

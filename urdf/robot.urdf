@@ -1,0 +1,137 @@
+<?xml version="1.0"?>
+<robot name="firefighting_robot" xmlns:xacro="http://ros.org/wiki/xacro">
+ 
+  <!-- ============================= -->
+<!-- 1. BASE CHASSIS (Main Body) -->
+<!-- ============================= -->
+<link name="base_link">
+<visual>
+<geometry>
+<!-- Adjust chassis size here (length x width x height) -->
+<box size="0.20 0.206 0.052"/>  <!-- X (length)=0.206m, Y (width)=0.200m -->
+</geometry>
+<material name="gray"/>
+</visual> 
+</link>
+ 
+  <!-- ============================= -->
+<!-- 2. WHEELS -->
+<!-- ============================= -->
+<!-- Front Left Wheel (Powered Stepper Motor) -->
+<link name="front_left_wheel">
+<visual>
+<geometry>
+<!-- Adjust wheel radius and thickness -->
+<cylinder radius="0.045" length="0.015"/>  <!-- 90mm diameter, 15mm thick -->
+</geometry>
+<material name="red"/>
+</visual>
+</link>
+ 
+  <!-- Front Right Wheel (Powered Stepper Motor) -->
+<link name="front_right_wheel">
+<visual>
+<geometry>
+<cylinder radius="0.045" length="0.015"/>
+</geometry>
+<material name="black"/>
+</visual>
+</link>
+ 
+  <!-- Rear Left Omni-Wheel (Passive) -->
+<link name="rear_left_wheel">
+<visual>
+<geometry>
+<cylinder radius="0.045" length="0.015"/>
+</geometry>
+<material name="gray"/>
+</visual>
+</link>
+ 
+  <!-- Rear Right Omni-Wheel (Passive) -->
+<link name="rear_right_wheel">
+<visual>
+<geometry>
+<cylinder radius="0.045" length="0.015"/>
+</geometry>
+<material name="gray"/>
+</visual>
+</link>
+ 
+  <!-- ============================= -->
+<!-- 3. SENSORS -->
+<!-- ============================= -->
+<!-- LIDAR (RPLIDAR A1M8) -->
+<link name="lidar_link">
+<visual>
+<geometry>
+<cylinder radius="0.03" length="0.02"/>  <!-- LIDAR is 6cm diameter -->
+</geometry>
+<material name="red"/>
+</visual>
+</link>
+ 
+  <!-- IMU (BNO085) -->
+<link name="imu_link">
+<visual>
+<geometry>
+<box size="0.05 0.05 0.01"/>  <!-- 5cm x 5cm x 2cm -->
+</geometry>
+<material name="blue"/>
+</visual>
+</link>
+ 
+ 
+
+ 
+  <!-- ============================= -->
+<!-- 5. JOINTS (Connections) -->
+<!-- ============================= -->
+<!-- Joint: Front Left Wheel (Rotates) -->
+<joint name="front_left_wheel_joint" type="continuous">
+<parent link="base_link"/>
+<child link="front_left_wheel"/>
+<!-- Adjust wheel placement on X (forward), Y (left/right), Z (height) -->
+<origin xyz="0.05 0.1105 0" rpy="-1.57 1.57 0"/>
+<axis xyz="0 0 1"/>
+</joint>
+ 
+  <!-- Joint: Front Right Wheel (Rotates) -->
+<joint name="front_right_wheel_joint" type="continuous">
+<parent link="base_link"/>
+<child link="front_right_wheel"/>
+<origin xyz="0.05 -0.1105 0" rpy="-1.57 1.57 0"/>
+<axis xyz="0 0 1"/>
+</joint>
+ 
+  <!-- Joint: Rear Left Omni-Wheel (Fixed) -->
+<joint name="rear_left_wheel_joint" type="fixed">
+<parent link="base_link"/>
+<child link="rear_left_wheel"/>
+<origin xyz="-0.09 0.1105 0" rpy="-1.57 1.57 0"/>
+</joint>
+ 
+  <!-- Joint: Rear Right Omni-Wheel (Fixed) -->
+<joint name="rear_right_wheel_joint" type="fixed">
+<parent link="base_link"/>
+<child link="rear_right_wheel"/>
+<origin xyz="-0.09 -0.1105 0" rpy="-1.57 1.57 0"/>
+</joint>
+ 
+  <!-- Joint: LIDAR (Fixed to Chassis) -->
+<joint name="lidar_joint" type="fixed">
+<parent link="base_link"/>
+<child link="lidar_link"/>
+<!-- Adjust LIDAR height (Z) -->
+<origin xyz="0.05 0 0.089" rpy="0 0 0"/>
+</joint>
+ 
+  <!-- Joint: IMU (Fixed to Chassis) -->
+<joint name="imu_joint" type="fixed">
+<parent link="base_link"/>
+<child link="imu_link"/>
+<origin xyz="0.05 0 0.0" rpy="0 0 0"/>
+</joint>
+ 
+ 
+</robot>

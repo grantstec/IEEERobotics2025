@@ -1,0 +1,258 @@
+# Optimized Navigation Parameters for IEEE Firefighting Robot
+# For Foxy compatibility
+
+# ----------------------------
+# BT Navigator Configuration
+# ----------------------------
+bt_navigator:
+  ros__parameters:
+    use_sim_time: false
+    global_frame: map
+    robot_base_frame: base_link
+    odom_topic: odom
+    transform_tolerance: 2.0  # Very generous
+    # Don't specify the BT XML filename here - passed via launch file
+    plugin_lib_names:
+    - nav2_compute_path_to_pose_action_bt_node
+    - nav2_follow_path_action_bt_node
+    - nav2_back_up_action_bt_node
+    - nav2_spin_action_bt_node
+    - nav2_wait_action_bt_node
+    - nav2_clear_costmap_service_bt_node
+    - nav2_is_stuck_condition_bt_node
+    - nav2_goal_reached_condition_bt_node
+    - nav2_goal_updated_condition_bt_node
+    - nav2_initial_pose_received_condition_bt_node
+    - nav2_reinitialize_global_localization_service_bt_node
+    - nav2_rate_controller_bt_node
+    - nav2_distance_controller_bt_node
+    - nav2_speed_controller_bt_node
+    - nav2_truncate_path_action_bt_node
+    - nav2_goal_updater_node_bt_node
+    - nav2_recovery_node_bt_node
+    - nav2_pipeline_sequence_bt_node
+    - nav2_round_robin_node_bt_node
+    - nav2_transform_available_condition_bt_node
+    - nav2_time_expired_condition_bt_node
+    - nav2_distance_traveled_condition_bt_node
+    bt_loop_duration: 10
+    default_server_timeout: 20
+
+# ----------------------------
+# Controller Server Configuration
+# ----------------------------
+controller_server:
+  ros__parameters:
+    use_sim_time: false
+    controller_frequency: 2.5  # Reduced for reliability
+    min_x_velocity_threshold: 0.05  # Increased minimum speed thresholds
+    min_y_velocity_threshold: 0.0
+    min_theta_velocity_threshold: 0.05
+    
+    # Progress checker - very forgiving
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.05
+      movement_time_allowance: 15.0
+    
+    # Goal checker - very generous tolerances
+    goal_checker:
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.25
+      yaw_goal_tolerance: 0.5
+      stateful: true
+    
+    controller_plugins: ["FollowPath"]
+
+    # DWB Local Planner - optimized for your robot
+    FollowPath:
+      plugin: "dwb_core::DWBLocalPlanner"
+      debug_trajectory_details: true
+      
+      # Very low velocities for safe operation
+      min_vel_x: 0.0
+      max_vel_x: 0.1
+      min_vel_y: 0.0
+      max_vel_y: 0.0
+      min_vel_theta: -0.15
+      max_vel_theta: 0.15
+      
+      # Gentle acceleration
+      acc_lim_x: 0.1
+      acc_lim_y: 0.0
+      acc_lim_theta: 0.05
+      decel_lim_x: -0.1
+      decel_lim_y: 0.0
+      decel_lim_theta: -0.05
+      
+      # Simplified trajectory sampling
+      vx_samples: 8
+      vy_samples: 0
+      vtheta_samples: 8
+      sim_time: 1.5
+      
+      # Higher tolerances for transforms
+      transform_tolerance: 2.0
+      xy_goal_tolerance: 0.25
+      trans_stopped_velocity: 0.05  # Lower threshold for considering the robot stopped
+      
+      # Essential scoring critics only
+      critics: ["ObstacleFootprint", "GoalAlign", "PathAlign", "GoalDist", "PathDist"]
+      ObstacleFootprint.scale: 1.0
+      PathAlign.scale: 32.0
+      GoalAlign.scale: 24.0
+      PathDist.scale: 32.0
+      GoalDist.scale: 24.0
+      
+      # Special parameters for obstacle avoidance
+      ObstacleFootprint.inflation_radius: 0.15
+      short_circuit_trajectory_evaluation: true
+
+# ----------------------------
+# Planner Server Configuration
+# ----------------------------
+planner_server:
+  ros__parameters:
+    use_sim_time: false
+    planner_plugins: ["GridBased"]
+    
+    # Navfn global planner with more tolerance
+    GridBased:
+      plugin: "nav2_navfn_planner/NavfnPlanner"
+      tolerance: 0.5
+      use_astar: true
+      allow_unknown: true
+
+# ----------------------------
+# Recovery Server Configuration
+# ----------------------------
+recoveries_server:
+  ros__parameters:
+    use_sim_time: false
+    costmap_topic: local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 10.0
+    
+    # Recovery behaviors - minimal and safe
+    recovery_plugins: ["spin", "backup", "wait"]
+    
+    # Very slow and gentle spin
+    spin:
+      plugin: "nav2_recoveries/Spin"
+      max_rotational_vel: 0.1
+      min_rotational_vel: 0.05
+      rotational_acc_lim: 0.05
+    
+    # Minimal backup
+    backup:
+      plugin: "nav2_recoveries/BackUp"
+      speed: 0.02
+      backup_dist: 0.05
+    
+    # Longer wait
+    wait:
+      plugin: "nav2_recoveries/Wait"
+      wait_time: 5.0
+    
+    # Framework parameters
+    global_frame: odom
+    robot_base_frame: base_link
+    transform_timeout: 2.0
+    use_sim_time: false
+
+# ----------------------------
+# Local Costmap Configuration
+# ----------------------------
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      update_frequency: 2.0  # Slower updates
+      publish_frequency: 1.0
+      global_frame: odom
+      robot_base_frame: base_link
+      use_sim_time: false
+      rolling_window: true
+      width: 3
+      height: 3
+      resolution: 0.05
+      robot_radius: 0.15
+      plugins: ["obstacle_layer", "inflation_layer"]
+      
+      # Obstacle detection
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: true
+          marking: true
+          data_type: "LaserScan"
+          raytrace_max_range: 3.0
+          raytrace_min_range: 0.05
+          obstacle_max_range: 2.5
+          obstacle_min_range: 0.05
+          inf_is_valid: false
+          
+      # Inflation for safety
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 5.0
+        inflation_radius: 0.15
+
+# ----------------------------
+# Global Costmap Configuration
+# ----------------------------
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      update_frequency: 1.0
+      publish_frequency: 0.5  # Less frequent updates
+      global_frame: map
+      robot_base_frame: base_link
+      use_sim_time: false
+      robot_radius: 0.15
+      resolution: 0.05
+      track_unknown_space: true
+      # Always create a larger map with robot at center
+      width: 10
+      height: 10
+      origin_x: -5.0
+      origin_y: -5.0
+      plugins: ["obstacle_layer", "inflation_layer"]
+      
+      # Global obstacles
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: true
+          marking: true
+          data_type: "LaserScan"
+          raytrace_max_range: 3.0
+          raytrace_min_range: 0.05
+          obstacle_max_range: 2.5
+          obstacle_min_range: 0.05
+          inf_is_valid: false
+          
+      # Global inflation
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 5.0
+        inflation_radius: 0.15
+
+# ----------------------------
+# Lifecycle Manager Configuration
+# ----------------------------
+lifecycle_manager:
+  ros__parameters:
+    use_sim_time: false
+    autostart: true
+    node_names: ['controller_server',
+                 'planner_server',
+                 'recoveries_server',
+                 'bt_navigator']

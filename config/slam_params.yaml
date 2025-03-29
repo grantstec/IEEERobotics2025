@@ -1,0 +1,50 @@
+slam_toolbox:
+  ros__parameters:
+    # ROS Parameters
+    use_sim_time: false
+    
+    # Robot-specific parameters
+    base_frame: base_link
+    odom_frame: odom
+    map_frame: map
+    
+    # Basic operation settings
+    mode: mapping
+    debug_logging: true
+    throttle_scans: 1
+    transform_publish_period: 0.1  # Increased from 0.02 to reduce CPU load
+    map_update_interval: 5.0
+    resolution: 0.05
+    max_laser_range: 5.0           # Reduced for the A1M8 (more stable)
+    minimum_time_interval: 0.5     # Increased to avoid too frequent updates
+    transform_timeout: 0.5         # More forgiving
+    tf_buffer_duration: 30.0       # Longer TF buffer for stability
+    
+    # Disable fancy features for stability
+    use_multithread: false         # CRUCIAL: Avoids threading issues in Foxy
+    
+    # SLAM specific parameters - more conservative
+    use_scan_matching: true
+    use_scan_barycenter: true
+    minimum_travel_distance: 0.3   # Wait for more movement before updating
+    minimum_travel_heading: 0.15   # Wait for more rotation before updating
+    scan_buffer_size: 5            # Smaller buffer = less computation
+    scan_buffer_maximum_scan_distance: 5.0
+    link_match_minimum_response_fine: 0.15  
+    link_scan_maximum_distance: 2.0 # Reduced from 1.5
+    loop_search_maximum_distance: 3.0
+    do_loop_closing: true
+    loop_match_minimum_chain_size: 5
+    loop_match_maximum_variance_coarse: 3.0
+    loop_match_minimum_response_coarse: 0.35    
+    loop_match_minimum_response_fine: 0.45
+
+    # Correlation Parameters - made more lenient
+    correlation_search_space_dimension: 0.6     # Increased from 0.5
+    correlation_search_space_resolution: 0.01
+    correlation_search_space_smear_deviation: 0.1
+
+    # Loop Closure Parameters - made more lenient
+    loop_search_space_dimension: 8.0
+    loop_search_space_resolution: 0.05
+    loop_search_space_smear_deviation: 0.03

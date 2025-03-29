@@ -1,0 +1,221 @@
+bt_navigator:
+  ros__parameters:
+    use_sim_time: false
+    global_frame: map
+    robot_base_frame: base_link
+    odom_topic: odom
+    transform_tolerance: 0.5
+    # No default_bt_xml_filename here - we'll pass it directly in the launch file
+    plugin_lib_names:
+    - nav2_compute_path_to_pose_action_bt_node
+    - nav2_follow_path_action_bt_node
+    - nav2_back_up_action_bt_node
+    - nav2_spin_action_bt_node
+    - nav2_wait_action_bt_node
+    - nav2_clear_costmap_service_bt_node
+    - nav2_is_stuck_condition_bt_node
+    - nav2_goal_reached_condition_bt_node
+    - nav2_goal_updated_condition_bt_node
+    - nav2_initial_pose_received_condition_bt_node
+    - nav2_reinitialize_global_localization_service_bt_node
+    - nav2_rate_controller_bt_node
+    - nav2_distance_controller_bt_node
+    - nav2_speed_controller_bt_node
+    - nav2_truncate_path_action_bt_node
+    - nav2_goal_updater_node_bt_node
+    - nav2_recovery_node_bt_node
+    - nav2_pipeline_sequence_bt_node
+    - nav2_round_robin_node_bt_node
+    - nav2_transform_available_condition_bt_node
+    - nav2_time_expired_condition_bt_node
+    - nav2_distance_traveled_condition_bt_node
+    bt_loop_duration: 10
+    default_server_timeout: 20
+
+controller_server:
+  ros__parameters:
+    use_sim_time: false
+    controller_frequency: 5.0
+    min_x_velocity_threshold: 0.01
+    min_y_velocity_threshold: 0.0
+    min_theta_velocity_threshold: 0.03
+    failure_tolerance: 1.0
+    
+    # Progress checker - very lenient
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.02  # Even smaller - easier to satisfy
+      movement_time_allowance: 15.0   # More time allowed
+    
+    # Goal checker - increased tolerance
+    goal_checker:
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.3  # Even larger
+      yaw_goal_tolerance: 0.5  # Much larger angle tolerance
+      stateful: true
+    
+    controller_plugins: ["FollowPath"]
+
+    # DWB controller with conservative parameters
+    FollowPath:
+      plugin: "dwb_core::DWBLocalPlanner"
+      debug_trajectory_details: true
+      
+      # Velocity limits - very conservative
+      min_vel_x: -0.05
+      max_vel_x: 0.1   # Reduce max speed further
+      min_vel_y: 0.0
+      max_vel_y: 0.0
+      min_vel_theta: -0.3
+      max_vel_theta: 0.3
+      
+      # Acceleration limits - very gentle
+      acc_lim_x: 0.1    # Even gentler
+      acc_lim_y: 0.0
+      acc_lim_theta: 0.2
+      decel_lim_x: -0.1   # Even gentler
+      decel_lim_y: 0.0
+      decel_lim_theta: -0.2
+      
+      # Trajectory generation
+      vx_samples: 8
+      vy_samples: 0
+      vtheta_samples: 8
+      sim_time: 2.5        # Look further ahead
+      linear_granularity: 0.05
+      angular_granularity: 0.025
+      
+      # Tolerances
+      transform_tolerance: 1.0  # More forgiving
+      xy_goal_tolerance: 0.3    # Match with goal checker
+      trans_stopped_velocity: 0.02
+      short_circuit_trajectory_evaluation: true
+      stateful: true
+      
+      # Scoring weights
+      critics: ["ObstacleFootprint", "GoalAlign", "PathAlign", "GoalDist", "PathDist"]
+      ObstacleFootprint.scale: 0.005  # Even lower to be less aggressive around obstacles
+      ObstacleFootprint.inflation_radius: 0.15
+      PathAlign.scale: 8.0
+      GoalAlign.scale: 6.0
+      PathAlign.forward_point_distance: 0.3
+      GoalAlign.forward_point_distance: 0.3
+      PathDist.scale: 8.0
+      GoalDist.scale: 6.0
+
+planner_server:
+  ros__parameters:
+    use_sim_time: false
+    planner_plugins: ["GridBased"]
+    
+    # Global planner with higher tolerance
+    GridBased:
+      plugin: "nav2_navfn_planner/NavfnPlanner"
+      tolerance: 0.5
+      use_astar: true
+      allow_unknown: true
+      use_final_approach_orientation: true
+
+recoveries_server:
+  ros__parameters:
+    use_sim_time: false
+    costmap_topic: local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 10.0
+    
+    # Recovery behaviors - even slower motion
+    recovery_plugins: ["spin", "backup", "wait"]
+    
+    # Spin parameters - even slower
+    spin:
+      plugin: "nav2_recoveries/Spin"
+      max_rotational_vel: 0.2
+      min_rotational_vel: 0.05
+      rotational_acc_lim: 0.1
+    
+    # Backup parameters - very slow
+    backup:
+      plugin: "nav2_recoveries/BackUp"
+      speed: 0.03
+      backup_dist: 0.1
+    
+    # Longer wait time
+    wait:
+      plugin: "nav2_recoveries/Wait"
+      wait_time: 10.0
+      
+    # Shared parameters
+    global_frame: odom
+    robot_base_frame: base_link
+    transform_timeout: 1.0  # More forgiving timeout
+    simulate_ahead_time: 2.0
+    
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      update_frequency: 2.0
+      publish_frequency: 1.0
+      global_frame: odom
+      robot_base_frame: base_link
+      use_sim_time: false
+      rolling_window: true
+      width: 2
+      height: 2
+      resolution: 0.05
+      robot_radius: 0.15
+      plugins: ["obstacle_layer", "inflation_layer"]
+      
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: true
+          marking: true
+          data_type: "LaserScan"
+          raytrace_max_range: 5.0
+          raytrace_min_range: 0.12
+          obstacle_max_range: 4.5
+          obstacle_min_range: 0.12
+          inf_is_valid: false
+
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 3.0  # Even less aggressive
+        inflation_radius: 0.15
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      update_frequency: 0.5
+      publish_frequency: 0.5
+      global_frame: map
+      robot_base_frame: base_link
+      use_sim_time: false
+      robot_radius: 0.15
+      resolution: 0.05
+      track_unknown_space: true
+      plugins: ["obstacle_layer", "inflation_layer"]
+      
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: true
+          marking: true
+          data_type: "LaserScan"
+          raytrace_max_range: 5.0
+          raytrace_min_range: 0.12
+          obstacle_max_range: 4.5
+          obstacle_min_range: 0.12
+          inf_is_valid: false
+
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 3.0  # Even less aggressive
+        inflation_radius: 0.15
