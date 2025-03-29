@@ -1,0 +1,14 @@
+[Unit]
+Description=IEEE Robotics Fire Mission Starter Service
+After=multi-user.target network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/YOUR_USERNAME/robot_ws/src/ieee_robotics/scripts
+ExecStart=/usr/bin/python3 /home/YOUR_USERNAME/robot_ws/src/ieee_robotics/scripts/fire_mission_starter.py
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
