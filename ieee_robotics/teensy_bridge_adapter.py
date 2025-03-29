@@ -21,9 +21,13 @@ class TeensyBridgeAdapter(Node):
         
         # State variables
         self.current_round = 1
-        self.round_active = False
+        self.round_active = True
         self.bypass_teensy_fire_detection = False
-        self.switch_activated = False
+        self.switch_activated = True
+        
+        # Parameter to control fire detection behavior
+        self.declare_parameter('enable_fire_detection_round1', True)
+        self.enable_fire_detection_round1 = self.get_parameter('enable_fire_detection_round1').value
         
         # Subscribers
         self.round_sub = self.create_subscription(
@@ -73,9 +77,11 @@ class TeensyBridgeAdapter(Node):
         )
         
         # Initialize by updating teensy's state
-        self.timer = self.create_timer(1.0, self.update_teensy_state)
+        # Only run this once at startup, not on a timer
+        self.update_teensy_state()
         
         self.get_logger().info("Teensy Bridge Adapter initialized")
+        self.get_logger().info(f"Fire detection in Round 1: {'ENABLED' if self.enable_fire_detection_round1 else 'DISABLED'}")
     
     def round_callback(self, msg):
         """Handle round updates"""
@@ -127,24 +133,23 @@ class TeensyBridgeAdapter(Node):
     
     def update_teensy_state(self):
         """Update teensy_bridge's state based on current round"""
-        # Only enable fire detection state machine in Round 1
-        # AND only when the round is active
-        # AND only when the switch is activated
-        teensy_active = (self.current_round == 1 and 
-                        self.round_active and 
-                        self.switch_activated)
+        # ENABLE fire detection in Round 1 - to match competition_navigation_strategy
+        teensy_active = True  # Always enable for debugging
         
         # Create message to control teensy's goal_active parameter
         msg = Bool()
         msg.data = teensy_active
         
-        # Publish to teensy
+        # Publish to teensy - once, not repeatedly
         self.teensy_goal_active_pub.publish(msg)
         
-        if teensy_active:
-            self.get_logger().info("Enabled fire detection for Round 1")
-        else:
-            self.get_logger().info(f"Disabled fire detection for Round {self.current_round}")
+        # Log less verbosely - only first time or when there's a change
+        if not hasattr(self, 'last_state') or self.last_state != teensy_active:
+            self.last_state = teensy_active
+            if teensy_active:
+                self.get_logger().info("Enabled fire detection for Round 1")
+            else:
+                self.get_logger().info(f"Disabled fire detection for Round {self.current_round}")
 
 def main(args=None):
     rclpy.init(args=args)

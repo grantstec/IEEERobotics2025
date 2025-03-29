@@ -92,7 +92,8 @@ class TeensyIMUBridge(Node):
             msg.header.frame_id = 'imu_link'
             
             # Set orientation quaternion [w, x, y, z]
-            msg.orientation = Quaternion(*values[:4])
+            # To this:
+            msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w = values[:4]
             
             # Set angular velocity [x, y, z]
             msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z = values[4:7]

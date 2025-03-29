@@ -3,7 +3,6 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Bool
 import time
-import Jetson.GPIO as GPIO
 
 class HardwareSwitch(Node):
     """
@@ -14,90 +13,70 @@ class HardwareSwitch(Node):
         super().__init__('hardware_switch')
         
         # Parameters
-        self.declare_parameter('gpio_pin', 12)  # Using pin 12 (GPIO79) by default
-        self.declare_parameter('active_high', True)  # Switch is active high
-        self.declare_parameter('debounce_time', 0.05)  # 50ms debounce time
-        self.declare_parameter('publish_rate', 10.0)  # Publish at 10Hz by default
+        self.declare_parameter('gpio_pin', 12)
+        self.declare_parameter('active_high', True)
+        self.declare_parameter('publish_rate', 1.0)  # Slower rate for less noise
         
         # Get parameters
         self.gpio_pin = self.get_parameter('gpio_pin').value
         self.active_high = self.get_parameter('active_high').value
-        self.debounce_time = self.get_parameter('debounce_time').value
         self.publish_rate = self.get_parameter('publish_rate').value
         
-        # Initialize GPIO
-        self.setup_gpio()
+        # State variables
+        self.switch_state = False  # Default to OFF
         
         # Publisher for switch state
         self.switch_pub = self.create_publisher(Bool, 'hardware/start_switch', 10)
         
-        # Last known switch state
-        self.last_state = self.read_switch()
-        self.last_change_time = time.time()
+        # Add a dedicated subscriber
+        self.cmd_sub = self.create_subscription(
+            Bool,
+            'hardware/set_switch', 
+            self.set_switch_callback,
+            10
+        )
         
-        # Timer to periodically publish the current switch state
-        period = 1.0 / self.publish_rate
-        self.create_timer(period, self.publish_switch_state)
+        # Also accept messages on the hardware/start_switch topic
+        self.state_sub = self.create_subscription(
+            Bool,
+            'hardware/start_switch',
+            self.switch_state_callback, 
+            10
+        )
         
-        self.get_logger().info(f"Hardware switch initialized on GPIO pin {self.gpio_pin}")
-        self.get_logger().info(f"Current switch state: {'ON' if self.last_state else 'OFF'}")
-
-    def setup_gpio(self):
-        """Set up the GPIO pin for the switch"""
-        # Use BOARD pin numbering (physical pin numbers)
-        GPIO.setmode(GPIO.BOARD)
+        # Create timer for publishing state at regular intervals
+        self.create_timer(1.0/self.publish_rate, self.publish_state)
         
-        # Set up the pin with appropriate pull-up/down
-        if self.active_high:
-            # For active high, use pull-down resistor
-            GPIO.setup(self.gpio_pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-            self.get_logger().info("Switch configured as active-high with pull-down")
-        else:
-            # For active low, use pull-up resistor
-            GPIO.setup(self.gpio_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-            self.get_logger().info("Switch configured as active-low with pull-up")
-
-    def read_switch(self):
-        """Read the current switch state with proper logic"""
-        # Read the physical pin state
-        pin_state = GPIO.input(self.gpio_pin)
-        
-        # Apply logic based on active_high setting
-        if self.active_high:
-            return bool(pin_state)  # Return True if HIGH, False if LOW
-        else:
-            return not bool(pin_state)  # Return True if LOW, False if HIGH
+        # Print initial instructions
+        self.get_logger().info("=== VIRTUAL HARDWARE SWITCH INITIALIZED ===")
+        self.get_logger().info(f"Current switch state: {'ON' if self.switch_state else 'OFF'}")
+        self.get_logger().info("To turn switch ON:  ros2 topic pub -1 /hardware/set_switch std_msgs/Bool '{data: true}'")
+        self.get_logger().info("To turn switch OFF: ros2 topic pub -1 /hardware/set_switch std_msgs/Bool '{data: false}'")
+        self.get_logger().info("================================================")
     
-    def publish_switch_state(self):
-        """Read and publish the current switch state with debouncing"""
-        current_time = time.time()
-        current_state = self.read_switch()
-        
-        # Check if state has changed and debounce time has passed
-        if (current_state != self.last_state and 
-            current_time - self.last_change_time > self.debounce_time):
-            
-            # Update the last change time
-            self.last_change_time = current_time
-            
-            # Log the state change
-            if current_state:
-                self.get_logger().info("Switch turned ON")
-            else:
-                self.get_logger().info("Switch turned OFF")
-        
-        # Always update last_state 
-        self.last_state = current_state
-        
-        # Publish the current state
+    def set_switch_callback(self, msg):
+        """Callback for dedicated control topic"""
+        new_state = msg.data
+        if new_state != self.switch_state:
+            self.switch_state = new_state
+            self.get_logger().info(f"*** SWITCH STATE CHANGED TO: {'ON' if new_state else 'OFF'} ***")
+    
+    def switch_state_callback(self, msg):
+        """Callback for the actual switch state topic"""
+        new_state = msg.data
+        if new_state != self.switch_state:
+            self.switch_state = new_state
+            self.get_logger().info(f"*** SWITCH STATE CHANGED TO: {'ON' if new_state else 'OFF'} ***")
+    
+    def publish_state(self):
+        """Publish the current switch state"""
         msg = Bool()
-        msg.data = current_state
+        msg.data = self.switch_state
         self.switch_pub.publish(msg)
-
-    def destroy_node(self):
-        """Clean up GPIO on shutdown"""
-        GPIO.cleanup(self.gpio_pin)
-        super().destroy_node()
+    
+    def read_switch(self):
+        """Virtual read - just return the stored state"""
+        return self.switch_state
 
 def main(args=None):
     rclpy.init(args=args)

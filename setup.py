@@ -30,8 +30,15 @@ setup(
             'teensy_bridge = ieee_robotics.teensy_bridge:main',
             'twist_to_motors = ieee_robotics.twist_to_motors:main',
             'wheel_odometry = ieee_robotics.wheel_odometry:main',
-            'gpu_image_processor = ieee_robotics.gpu_image_processor:main',  # Add GPU processor
-            'system_monitor = ieee_robotics.system_monitor:main',  # Add system monitor
+            'gpu_image_processor = ieee_robotics.gpu_image_processor:main',
+            'system_monitor = ieee_robotics.system_monitor:main',
+            # Add missing executables:
+            'hardware_switch = ieee_robotics.hardwareswitch:main',
+            'teensy_imu_bridge = ieee_robotics.teensy_imu_bridge:main',
+            'fire_detection_state_machine = ieee_robotics.fire_detection_state_machine:main',
+            'round_state_manager = ieee_robotics.round_tracker:main',
+            'teensy_bridge_adapter = ieee_robotics.teensy_bridge_adapter:main',
+            'competition_navigation_strategy = ieee_robotics.navigation_strategy:main',
         ],
     },
 )
