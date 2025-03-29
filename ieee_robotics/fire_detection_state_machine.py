@@ -32,6 +32,8 @@ class FireDetectionStateMachine(Node):
         self.current_state = self.STATE_INITIAL
         self.last_state_change_time = 0
         self.current_fire_detection = None
+        self.is_running = False  # Add this flag
+
         
         # Subscribe to goal_active control from the adapter
         self.goal_active_sub = self.create_subscription(
@@ -86,6 +88,12 @@ class FireDetectionStateMachine(Node):
             self.current_state = self.STATE_INITIAL
             self.last_state_change_time = time.time()
             self.get_logger().info("Starting fire detection scan sequence")
+            
+        if self.goal_active and self.switch_activated and not self.is_running:
+            self.current_state = self.STATE_INITIAL
+            self.last_state_change_time = time.time()
+            self.is_running = True  # Set running flag
+            self.get_logger().info("Starting fire detection scan sequence")
 
     def switch_callback(self, msg):
         """Handle switch state changes"""
@@ -116,7 +124,11 @@ class FireDetectionStateMachine(Node):
         goal.header.frame_id = "map"
         goal.pose.position.x = x
         goal.pose.position.y = y
-        goal.pose.orientation = Quaternion(*quaternion_from_euler(0, 0, math.radians(angle)))
+        quat = quaternion_from_euler(0, 0, math.radians(angle))
+        goal.pose.orientation.x = quat[0]
+        goal.pose.orientation.y = quat[1]
+        goal.pose.orientation.z = quat[2]
+        goal.pose.orientation.w = quat[3]
         return goal
 
     def process_state_machine(self):
@@ -124,6 +136,10 @@ class FireDetectionStateMachine(Node):
         # Only run if both goal_active and switch_activated are true
         if not self.goal_active or not self.switch_activated:
             return
+        
+        if not self.goal_active or not self.switch_activated:
+          self.is_running = False  # Reset flag when conditions are not met
+          return
             
         # Skip if no fire detection data available
         if self.current_fire_detection is None:
@@ -180,13 +196,25 @@ class FireDetectionStateMachine(Node):
                 self.get_logger().warn("No fire detected in full scan")
                 self.goal_active = False
                 # Could add more complex retry behavior here if needed
+        if self.current_state == self.STATE_RESET:
+            if current_time - self.last_state_change_time > 5:
+                self.get_logger().warn("No fire detected in full scan")
+                self.goal_active = False
+                self.is_running = False  # Reset flag when scan completes
 
     def send_rotation_goal(self, angle):
         """Send a rotation goal to turn the robot to the specified angle"""
         goal_msg = PoseStamped()
         goal_msg.header.stamp = self.get_clock().now().to_msg()
         goal_msg.header.frame_id = 'base_link'
-        goal_msg.pose.orientation = Quaternion(*quaternion_from_euler(0, 0, math.radians(angle)))
+        
+        # Fixed: Properly handle quaternion creation
+        quat = quaternion_from_euler(0, 0, math.radians(angle))
+        goal_msg.pose.orientation.x = quat[0]
+        goal_msg.pose.orientation.y = quat[1]
+        goal_msg.pose.orientation.z = quat[2]
+        goal_msg.pose.orientation.w = quat[3]
+        
         self.goal_pub.publish(goal_msg)
         self.get_logger().debug(f"Sent rotation goal: {angle} degrees")
 
