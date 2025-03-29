@@ -85,7 +85,7 @@ def generate_launch_description():
                 'base_frame': 'base_link',
                 'odom_frame': 'odom',
                 'map_frame': 'map',
-                'resolution': 0.01,
+                'resolution': 0.025,
                 'max_laser_range': 8.0,
                 'transform_publish_period': 0.05,  # Faster transform publishing
                 'tf_buffer_duration': 30.0,        # Longer TF buffer

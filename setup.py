@@ -32,6 +32,7 @@ setup(
             'wheel_odometry = ieee_robotics.wheel_odometry:main',
             'gpu_image_processor = ieee_robotics.gpu_image_processor:main',
             'system_monitor = ieee_robotics.system_monitor:main',
+            'publish_virtual_obstacle = ieee_robotics.publish_virtual_obstacle:main',
             # Add missing executables:
             'hardware_switch = ieee_robotics.hardwareswitch:main',
             'teensy_imu_bridge = ieee_robotics.teensy_imu_bridge:main',
